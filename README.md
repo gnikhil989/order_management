@@ -10,3 +10,4 @@ A production-grade backend system built with Java 21, Spring Boot, MySQL, Redis,
 * **Message Broker**: Apache Kafka
 * **Security**: Spring Security & JWT (Stateless)
 * **Documentation**: OpenAPI 3 / Swagger UI
+
