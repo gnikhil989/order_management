@@ -391,3 +391,19 @@ Here is the exhaustive master reference of **every single annotation** used acro
 > * In the filter chain, `JwtAuthFilter` parses the incoming JWT token, validates its signature, loads the user's `UserDetails`, and creates a `UsernamePasswordAuthenticationToken`.
 > * It stores this token in the ThreadLocal storage via `SecurityContextHolder.getContext().setAuthentication(auth)`.
 > * When a controller endpoint with `@AuthenticationPrincipal UserDetails userDetails` is executed, Spring's `AuthenticationPrincipalArgumentResolver` automatically extracts the principal object directly from the `SecurityContextHolder` for that request thread.
+
+---
+
+### Q8: How is the DRY (Don't Repeat Yourself) principle enforced in financial ledger and transaction processing pipelines?
+> **Answer**:
+> 1. **Centralized Ledger Record Creation**: Rather than duplicating `WalletTransaction.builder()...save()` across deposits, withdrawals, and P2P transfers, we extract a reusable `createAndSaveTransaction(...)` method.
+> 2. **Generic Passbook Aggregations**: Passbook summary calculations (summing deposits, withdrawals, transfers) reuse a single `sumTransactions(List<WalletTransaction>, TransactionType...)` method with a `Set<TransactionType>` filter rather than 4 separate Stream reduction pipelines.
+> 3. **Consistent Monetary Scale**: All arithmetic scaling (`setScale(2, RoundingMode.HALF_EVEN)`) is routed through a single `scaleAmount()` helper to ensure absolute precision consistency across the entire ledger.
+
+---
+
+### Q9: Why must financial audit columns (`createdAt`, `updatedAt`) and ledger records use `updatable = false`?
+> **Answer**:
+> * Financial regulations (such as SOX, PCI-DSS, RBI audit standards) require an immutable audit trail.
+> * Setting `@Column(updatable = false)` at the JPA layer ensures Hibernate will completely omit those columns from generated SQL `UPDATE` statements, preventing any programmatic tampering or accidental overwriting of historical ledger entries.
+
