@@ -16,7 +16,6 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 /**
  * User Entity.
@@ -33,12 +32,11 @@ import java.util.UUID;
 public class User {
 
     /**
-     * Unique identifier for the user.
-     * Uses UUID generation strategy.
+     * Primary key auto-increment identifier (PostgreSQL Identity / MySQL AUTO_INCREMENT).
      */
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
-    private UUID id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
     /**
      * User's full name.

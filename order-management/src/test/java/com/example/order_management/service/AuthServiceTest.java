@@ -22,7 +22,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.Collections;
 import java.util.Optional;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -63,7 +62,7 @@ class AuthServiceTest {
     @BeforeEach
     void setUp() {
         sampleUser = User.builder()
-                .id(UUID.randomUUID())
+                .id(1L)
                 .name("John Doe")
                 .email("john@example.com")
                 .password("hashed_password")
@@ -140,4 +139,5 @@ class AuthServiceTest {
                 .hasMessageContaining("Bad credentials");
     }
 }
+
 

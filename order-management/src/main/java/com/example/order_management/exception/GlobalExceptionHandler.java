@@ -72,6 +72,34 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Handles InsufficientBalanceException (HTTP 400 Bad Request).
+     */
+    @ExceptionHandler(InsufficientBalanceException.class)
+    public ResponseEntity<ErrorResponse> handleInsufficientBalance(InsufficientBalanceException ex) {
+        log.warn("Insufficient balance error: {}", ex.getMessage());
+        ErrorResponse error = new ErrorResponse(
+                "INSUFFICIENT_BALANCE",
+                ex.getMessage(),
+                HttpStatus.BAD_REQUEST.value()
+        );
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+    }
+
+    /**
+     * Handles WalletNotFoundException (HTTP 404 Not Found).
+     */
+    @ExceptionHandler(WalletNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleWalletNotFound(WalletNotFoundException ex) {
+        log.warn("Wallet not found: {}", ex.getMessage());
+        ErrorResponse error = new ErrorResponse(
+                "WALLET_NOT_FOUND",
+                ex.getMessage(),
+                HttpStatus.NOT_FOUND.value()
+        );
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+    }
+
+    /**
      * Fallback handler for all unexpected internal server errors (HTTP 500).
      */
     @ExceptionHandler(Exception.class)

@@ -9,7 +9,6 @@ import com.example.order_management.entity.Role;
 import com.example.order_management.service.AuthService;
 import com.example.order_management.service.CustomUserDetailsService;
 import com.example.order_management.service.JwtService;
-import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,9 +17,9 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import tools.jackson.databind.ObjectMapper;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -58,7 +57,7 @@ class AuthControllerTest {
     @DisplayName("POST /api/v1/auth/register - Should return 201 Created on valid input")
     void register_ValidPayload_Returns201() throws Exception {
         RegisterRequest request = new RegisterRequest("Jane Doe", "jane@example.com", "Password123!", Role.USER);
-        UserResponse userResponse = new UserResponse(UUID.randomUUID(), "Jane Doe", "jane@example.com", Role.USER, LocalDateTime.now());
+        UserResponse userResponse = new UserResponse(1L, "Jane Doe", "jane@example.com", Role.USER, LocalDateTime.now());
         AuthResponse authResponse = new AuthResponse("sample.jwt.token", 86400000L, userResponse);
 
         when(authService.register(any(RegisterRequest.class))).thenReturn(authResponse);
@@ -86,7 +85,7 @@ class AuthControllerTest {
     @DisplayName("POST /api/v1/auth/login - Should return 200 OK on valid credentials")
     void login_ValidPayload_Returns200() throws Exception {
         LoginRequest request = new LoginRequest("jane@example.com", "Password123!");
-        UserResponse userResponse = new UserResponse(UUID.randomUUID(), "Jane Doe", "jane@example.com", Role.USER, LocalDateTime.now());
+        UserResponse userResponse = new UserResponse(1L, "Jane Doe", "jane@example.com", Role.USER, LocalDateTime.now());
         AuthResponse authResponse = new AuthResponse("sample.jwt.token", 86400000L, userResponse);
 
         when(authService.login(any(LoginRequest.class))).thenReturn(authResponse);
@@ -99,4 +98,5 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.user.email").value("jane@example.com"));
     }
 }
+
 

@@ -5,7 +5,6 @@ import com.example.order_management.entity.User;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 /**
  * User Response Data Transfer Object (DTO).
@@ -16,8 +15,8 @@ import java.util.UUID;
 @Schema(description = "User profile information returned to clients")
 public record UserResponse(
 
-        @Schema(description = "Unique user ID", example = "a1b2c3d4-e5f6-7890-abcd-ef1234567890")
-        UUID id,
+        @Schema(description = "Unique user ID", example = "1")
+        Long id,
 
         @Schema(description = "User's full name", example = "John Doe")
         String name,

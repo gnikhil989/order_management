@@ -166,11 +166,13 @@ flowchart TD
 ### 1. `User.java` (The JPA Entity)
 * **What it is**: The Java class mapped directly to the `users` table in MySQL.
 * **Key Fields**:
-  * `id`: UUID primary key.
+  * `id`: `Long` primary key with `@GeneratedValue(strategy = GenerationType.IDENTITY)`.
   * `name`: Full name.
   * `email`: Unique email constraint (`@Column(unique = true)`).
   * `password`: Stores the BCrypt salted hash (never plain text!).
   * `role`: Enum (`ROLE_USER`, `ROLE_ADMIN`).
+  * `createdAt` & `updatedAt`: Automatic Hibernate timestamps at the bottom.
+
 
 ### 2. `UserRepository.java` (The Data Access Layer)
 * **What it is**: Spring Data JPA interface.
