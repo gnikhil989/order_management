@@ -260,3 +260,16 @@ flowchart TD
 
 > **Q4: How do you prevent N+1 queries when loading user relationships in Spring Data JPA?**
 > * **Answer**: *"In our queries, we use `JOIN FETCH` or `@EntityGraph` to eagerly retrieve related entities in a single SQL JOIN query rather than executing separate lazy-loading queries inside loops."*
+
+> **Q5: How do you handle JWT Token Invalidation (Logout / Blacklisting) in a stateless architecture?**
+> * **Answer**: *"Because JWTs are self-contained and valid until their expiration timestamp, standard logouts require architectural patterns such as: (1) Storing revoked tokens in an in-memory Redis blacklist with a TTL matching the token's remaining lifespan, or (2) Using short-lived Access Tokens (e.g. 15 minutes) paired with rotating Refresh Tokens stored in the database, where logging out simply deletes the refresh token record."*
+
+> **Q6: What are the security risks of storing sensitive user claims in a JWT payload?**
+> * **Answer**: *"A JWT is digitally signed for integrity, but its payload is merely Base64URL encoded—not encrypted. Anyone who intercepts the token can decode and view its claims. Therefore, sensitive information such as passwords, payment credentials, or SSNs must never be placed in JWT claims; only non-sensitive identifiers like userId and roles should be included."*
+
+> **Q7: What is the architectural difference between Symmetric (HMAC-SHA256) and Asymmetric (RSA/ECDSA) JWT signing?**
+> * **Answer**: *"Symmetric signing uses a single shared secret key for both signing and verifying tokens, which works well in monolithic or internal applications. Asymmetric signing uses a Private Key on the Auth server to issue tokens and distributes a Public Key to downstream microservices/gateways, allowing them to verify tokens independently without knowing the signing secret."*
+
+> **Q8: Why are Java Records preferred for DTOs in modern Spring Boot 3+ applications?**
+> * **Answer**: *"Java Records provide immutable data carriers with concise syntax, eliminating boilerplate getters, `equals()`, `hashCode()`, and `toString()`. Their inherent immutability guarantees thread safety, prevents unexpected payload mutation between layers, and integrates seamlessly with Jackson 3 serialization."*
+

@@ -407,3 +407,27 @@ Here is the exhaustive master reference of **every single annotation** used acro
 > * Financial regulations (such as SOX, PCI-DSS, RBI audit standards) require an immutable audit trail.
 > * Setting `@Column(updatable = false)` at the JPA layer ensures Hibernate will completely omit those columns from generated SQL `UPDATE` statements, preventing any programmatic tampering or accidental overwriting of historical ledger entries.
 
+---
+
+### Q10: When should you choose Pessimistic Locking (`@Lock(LockModeType.PESSIMISTIC_WRITE)`) over Optimistic Locking (`@Version`) in financial systems?
+> **Answer**:
+> * **Pessimistic Locking (Our Choice)**: Best when contention is **high** (e.g. flash sales, high-frequency wallet debits, concurrent transfer requests on the same account). Threads queue predictably in the database engine, avoiding costly retry loops.
+> * **Optimistic Locking**: Best when contention is **low** (e.g. updating a user profile). It uses a `@Version` column and throws `OptimisticLockException` if a conflict occurs, requiring application-level retry logic which can degrade performance under heavy financial write contention.
+
+---
+
+### Q11: How do you achieve end-to-end Idempotency in digital wallet and payment processing?
+> **Answer**:
+> * Clients provide a unique `idempotencyKey` (or external order reference) with each payment/transfer request.
+> * The service performs an initial lookup against the `reference_id` unique index in `wallet_transactions`. If an existing successful transaction is found with that reference, the service returns the previous response immediately without debiting funds a second time.
+> * Database-level `UNIQUE` constraints guarantee atomicity even if duplicate HTTP requests arrive simultaneously.
+
+---
+
+### Q12: How do database Transaction Isolation Levels (`READ COMMITTED` vs `REPEATABLE READ`) impact financial ledger queries?
+> **Answer**:
+> * **READ COMMITTED**: Prevents Dirty Reads. A query only sees data committed before the query executed. If another transaction commits between two queries, Non-Repeatable Reads can occur.
+> * **REPEATABLE READ (MySQL InnoDB Default)**: Uses Multi-Version Concurrency Control (MVCC) snapshots. All reads within the same transaction see the exact state as of the transaction's start snapshot.
+> * **Row Locks Override MVCC**: When we execute `SELECT ... FOR UPDATE` (`@Lock(LockModeType.PESSIMISTIC_WRITE)`), InnoDB always reads the **latest committed physical row data** (Current Read) rather than the historical MVCC snapshot, ensuring the balance calculation is always 100% accurate.
+
+

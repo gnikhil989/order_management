@@ -102,3 +102,16 @@ Controls how Hibernate handles database schema generation based on your Java `@E
 > **Question 2: Why do you set `spring.jpa.open-in-view=false`?**
 > * **Answer**: "OSIV holds database connections open across the entire web request, which can quickly exhaust the connection pool. Disabling it enforces clean boundaries where all database interactions finish in the service layer, and prevents unexpected lazy-loading queries during JSON serialization."
 
+> **Question 3: How does HikariCP calculate optimal pool sizing, and why is setting `maximum-pool-size=100` an anti-pattern?**
+> * **Answer**: "Optimal pool size follows PostgreSQL/HikariCP's rule of thumb: `connections = ((CPU_cores * 2) + effective_spindle_count)`. Setting a massive pool (e.g. 100 connections on a 4-core server) causes excessive OS thread context switching and disk I/O queue thrashing. A small pool of 10–20 well-utilized connections handles higher request throughput with lower latency."
+
+> **Question 4: What is the risk of setting `spring.jpa.hibernate.ddl-auto=update` in production environments?**
+> * **Answer**: "`update` can silently create missing columns or indexes but will never drop obsolete columns or rename existing ones. Furthermore, if entity mappings change drastically, it can trigger full table locks on large tables, causing production downtime without any migration rollback mechanism."
+
+> **Question 5: What is the consequence of configuring `connection-timeout` too low or too high in HikariCP?**
+> * **Answer**: "If `connection-timeout` is set too low (e.g. 100ms), transient spikes in traffic cause immediate `SQLTransientConnectionException` rejections for end users. If set too high (e.g. 60 seconds), exhausted pool threads hang waiting, cascading upstream thread exhaustion across the entire Tomcat container and leading to 504 Gateway Timeouts."
+
+> **Question 6: Why is `serverTimezone=UTC` essential in distributed database applications?**
+> * **Answer**: "If backend nodes and database instances reside in different geographical regions or compute instances, omitting `serverTimezone=UTC` causes JDBC drivers to interpret timestamps using the server's local OS clock. This results in timestamp corruption, incorrect financial transaction sorting, and daylight savings time (DST) calculation errors."
+
+

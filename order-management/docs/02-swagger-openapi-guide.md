@@ -105,3 +105,20 @@ public class OpenApiConfig {
    * **Swagger UI Dashboard**: `http://localhost:8080/swagger-ui/index.html`
    * **Raw OpenAPI JSON Data**: `http://localhost:8080/v3/api-docs`
 3. Click on any endpoint (e.g., `GET /api/v1/health`), click **"Try it out"**, then **"Execute"** to see live responses.
+
+---
+
+## 6. Interview Questions & Production Best Practices
+
+> **Question 1: How should Swagger UI and OpenAPI docs be handled in a production environment?**
+> * **Answer**: "Exposing internal API schemas publicly in production introduces security reconnaissance risks. We either disable Swagger in production by setting `springdoc.swagger-ui.enabled=false` and `springdoc.api-docs.enabled=false` in `application-prod.properties`, or restrict access to the `/swagger-ui/**` and `/v3/api-docs/**` endpoints behind Spring Security requiring `ROLE_ADMIN` authentication or an internal VPN network."
+
+> **Question 2: What is the difference between `@SecurityScheme` and `@SecurityRequirement` in OpenAPI 3?**
+> * **Answer**: "`@SecurityScheme` defines the authentication mechanism globally (e.g., HTTP Bearer JWT, OAuth2, or API Key) and its metadata. `@SecurityRequirement` actually applies that scheme to individual controller classes or methods, signaling to Swagger UI to attach the Bearer token in the `Authorization` header when sending requests."
+
+> **Question 3: Why is `@Schema(example = "...")` critical for frontend-backend contract collaboration?**
+> * **Answer**: "Providing realistic field examples allows frontend developers to understand payload structures instantly without guessing format conventions (e.g., `"150.00"` for currency vs raw numbers). It also powers automated contract testing tools and mock API servers (like Prism) generated directly from the OpenAPI JSON specification."
+
+> **Question 4: How does SpringDoc differ from older Springfox implementations in Spring Boot 3?**
+> * **Answer**: "Springfox is unmaintained and incompatible with Spring Boot 3+ / Spring 6 (which migrated from `javax.*` to `jakarta.*` packages and reworked path matching). SpringDoc was built natively for OpenAPI 3 and Spring Boot 3, supporting reactive WebFlux, standard Java records, and modern Jackson serialization out of the box."
+

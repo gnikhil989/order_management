@@ -181,3 +181,25 @@ public PasswordEncoder passwordEncoder() {
 2. **Stateless JWT is modern**: No server memory is wasted storing user sessions.
 3. **Passwords are always hashed**: BCrypt protects against rainbow tables and brute force attacks.
 4. **Thin & Clean**: Security routing is configured in one central, declarative file (`SecurityConfig.java`).
+
+---
+
+## 6. Interview Questions & Architecture Deep-Dive
+
+> **Question 1: What is the fundamental difference between Authentication (`401 Unauthorized`) and Authorization (`403 Forbidden`)?**
+> * **Answer**: 
+>   * **Authentication (Who are you?)**: Verifying the user's identity via credentials or token. If credentials are missing, malformed, or expired, the filter chain returns `401 Unauthorized`.
+>   * **Authorization (What are you allowed to do?)**: Checking whether the already-authenticated user has the required roles/permissions (`ROLE_ADMIN` vs `ROLE_USER`) to execute the requested endpoint. If permissions are insufficient, the server returns `403 Forbidden`.
+
+> **Question 2: Why must custom security filters extend `OncePerRequestFilter` instead of implementing standard `jakarta.servlet.Filter`?**
+> * **Answer**: "Standard servlet filters can be invoked multiple times within a single request lifecycle due to internal servlet forwards, error dispatches, or asynchronous request handling. `OncePerRequestFilter` provides guaranteed single execution per request thread, preventing duplicate JWT token decoding and redundant database queries."
+
+> **Question 3: How does `SecurityContextHolder` manage user security contexts across multiple simultaneous threads?**
+> * **Answer**: "By default, Spring Security uses `MODE_THREADLOCAL`, binding the `SecurityContext` to the specific JVM thread processing the HTTP request. Once the request finishes and the worker thread returns to the Tomcat pool, Spring Security clears the context to prevent context leakage across subsequent requests. For asynchronous multi-threading (`@Async`), `MODE_INHERITABLETHREADLOCAL` or a `DelegatingSecurityContextAsyncTaskExecutor` can be used."
+
+> **Question 4: Why is CSRF protection disabled (`csrf.disable()`) for stateless REST APIs using JWT Bearer tokens?**
+> * **Answer**: "CSRF vulnerabilities occur when browsers automatically attach session cookies to cross-origin requests made by malicious third-party websites. Since our REST API is stateless and relies on the client explicitly passing an `Authorization: Bearer <token>` header (which browsers do NOT automatically attach cross-domain), CSRF attacks are fundamentally impossible, making CSRF tokens redundant."
+
+> **Question 5: What is the purpose of `@EnableMethodSecurity` and how does `@PreAuthorize` evaluate security expressions?**
+> * **Answer**: "`@EnableMethodSecurity` activates Spring Security's Spring Expression Language (SpEL) evaluation at the service and controller method level. Annotations like `@PreAuthorize("hasRole('ADMIN')")` or `@PreAuthorize("#userId == authentication.principal.id")` are intercepted by AOP proxies before method invocation, enforcing fine-grained domain-level authorization."
+
