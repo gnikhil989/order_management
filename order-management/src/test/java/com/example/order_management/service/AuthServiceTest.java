@@ -56,12 +56,12 @@ class AuthServiceTest {
     @InjectMocks
     private AuthService authService;
 
-    private User sampleUser;
-    private UserDetails userDetails;
+    private User mockUser;
+    private UserDetails mockUserDetails;
 
     @BeforeEach
     void setUp() {
-        sampleUser = User.builder()
+        mockUser = User.builder()
                 .id(1L)
                 .name("John Doe")
                 .email("john@example.com")
@@ -69,7 +69,7 @@ class AuthServiceTest {
                 .role(Role.USER)
                 .build();
 
-        userDetails = new org.springframework.security.core.userdetails.User(
+        mockUserDetails = new org.springframework.security.core.userdetails.User(
                 "john@example.com",
                 "hashed_password",
                 Collections.emptyList()
@@ -79,31 +79,31 @@ class AuthServiceTest {
     @Test
     @DisplayName("Should successfully register a new user and return JWT token")
     void register_Success() {
-        RegisterRequest request = new RegisterRequest("John Doe", "john@example.com", "Secret123!", Role.USER);
+        RegisterRequest registerRequest = new RegisterRequest("John Doe", "john@example.com", "Secret123!", Role.USER);
 
         when(userRepository.existsByEmail("john@example.com")).thenReturn(false);
         when(passwordEncoder.encode("Secret123!")).thenReturn("hashed_password");
-        when(userRepository.save(any(User.class))).thenReturn(sampleUser);
-        when(userDetailsService.loadUserByUsername("john@example.com")).thenReturn(userDetails);
-        when(jwtService.generateToken(anyMap(), eq(userDetails))).thenReturn("mocked.jwt.token");
+        when(userRepository.save(any(User.class))).thenReturn(mockUser);
+        when(userDetailsService.loadUserByUsername("john@example.com")).thenReturn(mockUserDetails);
+        when(jwtService.generateToken(anyMap(), eq(mockUserDetails))).thenReturn("mocked.jwt.token");
         when(jwtService.getExpirationTime()).thenReturn(86400000L);
 
-        AuthResponse response = authService.register(request);
+        AuthResponse authResponse = authService.register(registerRequest);
 
-        assertThat(response).isNotNull();
-        assertThat(response.accessToken()).isEqualTo("mocked.jwt.token");
-        assertThat(response.user().email()).isEqualTo("john@example.com");
+        assertThat(authResponse).isNotNull();
+        assertThat(authResponse.accessToken()).isEqualTo("mocked.jwt.token");
+        assertThat(authResponse.user().email()).isEqualTo("john@example.com");
         verify(userRepository).save(any(User.class));
     }
 
     @Test
     @DisplayName("Should throw UserAlreadyExistsException when email is already registered")
     void register_EmailAlreadyExists_ThrowsException() {
-        RegisterRequest request = new RegisterRequest("John Doe", "john@example.com", "Secret123!", Role.USER);
+        RegisterRequest registerRequest = new RegisterRequest("John Doe", "john@example.com", "Secret123!", Role.USER);
 
         when(userRepository.existsByEmail("john@example.com")).thenReturn(true);
 
-        assertThatThrownBy(() -> authService.register(request))
+        assertThatThrownBy(() -> authService.register(registerRequest))
                 .isInstanceOf(UserAlreadyExistsException.class)
                 .hasMessageContaining("already exists");
     }
@@ -111,33 +111,31 @@ class AuthServiceTest {
     @Test
     @DisplayName("Should successfully authenticate user and return JWT token on login")
     void login_Success() {
-        LoginRequest request = new LoginRequest("john@example.com", "Secret123!");
+        LoginRequest loginRequest = new LoginRequest("john@example.com", "Secret123!");
 
-        when(userRepository.findByEmail("john@example.com")).thenReturn(Optional.of(sampleUser));
-        when(userDetailsService.loadUserByUsername("john@example.com")).thenReturn(userDetails);
-        when(jwtService.generateToken(anyMap(), eq(userDetails))).thenReturn("mocked.jwt.token");
+        when(userRepository.findByEmail("john@example.com")).thenReturn(Optional.of(mockUser));
+        when(userDetailsService.loadUserByUsername("john@example.com")).thenReturn(mockUserDetails);
+        when(jwtService.generateToken(anyMap(), eq(mockUserDetails))).thenReturn("mocked.jwt.token");
         when(jwtService.getExpirationTime()).thenReturn(86400000L);
 
-        AuthResponse response = authService.login(request);
+        AuthResponse authResponse = authService.login(loginRequest);
 
-        assertThat(response).isNotNull();
-        assertThat(response.accessToken()).isEqualTo("mocked.jwt.token");
-        assertThat(response.user().email()).isEqualTo("john@example.com");
+        assertThat(authResponse).isNotNull();
+        assertThat(authResponse.accessToken()).isEqualTo("mocked.jwt.token");
+        assertThat(authResponse.user().email()).isEqualTo("john@example.com");
         verify(authenticationManager).authenticate(any(UsernamePasswordAuthenticationToken.class));
     }
 
     @Test
     @DisplayName("Should throw BadCredentialsException when login password is invalid")
     void login_InvalidPassword_ThrowsException() {
-        LoginRequest request = new LoginRequest("john@example.com", "WrongPassword");
+        LoginRequest loginRequest = new LoginRequest("john@example.com", "WrongPassword");
 
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
                 .thenThrow(new BadCredentialsException("Bad credentials"));
 
-        assertThatThrownBy(() -> authService.login(request))
+        assertThatThrownBy(() -> authService.login(loginRequest))
                 .isInstanceOf(BadCredentialsException.class)
                 .hasMessageContaining("Bad credentials");
     }
 }
-
-

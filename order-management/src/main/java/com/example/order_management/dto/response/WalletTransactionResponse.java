@@ -45,25 +45,27 @@ public record WalletTransactionResponse(
         @Schema(description = "Timestamp when the transaction was executed")
         LocalDateTime createdAt
 ) {
-        /**
-         * Static factory method mapping a WalletTransaction JPA entity to a WalletTransactionResponse DTO.
-         *
-         * @param tx the entity to map
-         * @return populated WalletTransactionResponse DTO
-         */
-        public static WalletTransactionResponse fromEntity(WalletTransaction tx) {
-                return new WalletTransactionResponse(
-                                tx.getId(),
-                                tx.getWalletId(),
-                                tx.getType(),
-                                tx.getAmount(),
-                                tx.getBeforeBalance(),
-                                tx.getAfterBalance(),
-                                tx.getStatus(),
-                                tx.getDescription(),
-                                tx.getReferenceId(),
-                                tx.getCreatedAt()
-                );
-        }
+    /**
+     * Static factory method mapping a WalletTransaction JPA entity to a WalletTransactionResponse DTO.
+     *
+     * @param walletTransaction the entity to map
+     * @return populated WalletTransactionResponse DTO
+     */
+    public static WalletTransactionResponse fromEntity(WalletTransaction walletTransaction) {
+        return new WalletTransactionResponse(
+                walletTransaction.getId(),
+                walletTransaction.getWalletId(),
+                walletTransaction.getType(),
+                walletTransaction.getAmount(),
+                walletTransaction.getBeforeBalance(),
+                walletTransaction.getAfterBalance(),
+                walletTransaction.getStatus(),
+                walletTransaction.getDescription(),
+                walletTransaction.getReferenceId(),
+                walletTransaction.getCreatedAt()
+        );
+    }
+
 }
+
 

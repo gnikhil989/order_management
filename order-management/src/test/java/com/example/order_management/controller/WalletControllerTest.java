@@ -69,41 +69,41 @@ class WalletControllerTest {
     @MockitoBean
     private CustomUserDetailsService customUserDetailsService;
 
-    private Long userId;
-    private User mockUser;
-    private WalletResponse sampleWalletResponse;
+    private Long authenticatedUserId;
+    private User authenticatedUser;
+    private WalletResponse authenticatedUserWalletResponse;
 
     @BeforeEach
     void setUp() {
-        userId = 1L;
-        mockUser = User.builder()
-                .id(userId)
+        authenticatedUserId = 1L;
+        authenticatedUser = User.builder()
+                .id(authenticatedUserId)
                 .name("Nikhil")
                 .email("nikhil@example.com")
                 .password("hash")
                 .role(Role.USER)
                 .build();
 
-        sampleWalletResponse = new WalletResponse(
+        authenticatedUserWalletResponse = new WalletResponse(
                 1L,
-                userId,
+                authenticatedUserId,
                 new BigDecimal("100.00"),
                 "INR",
                 LocalDateTime.now()
         );
 
-        when(userRepository.findByEmail("nikhil@example.com")).thenReturn(Optional.of(mockUser));
+        when(userRepository.findByEmail("nikhil@example.com")).thenReturn(Optional.of(authenticatedUser));
     }
 
     @Test
     @WithMockUser(username = "nikhil@example.com")
     @DisplayName("GET /api/v1/wallet - Should return 200 OK with wallet details")
     void getWallet_AuthenticatedUser_Returns200() throws Exception {
-        when(walletService.getOrCreateWallet(userId)).thenReturn(sampleWalletResponse);
+        when(walletService.getOrCreateWallet(authenticatedUserId)).thenReturn(authenticatedUserWalletResponse);
 
         mockMvc.perform(get("/api/v1/wallet"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.userId").value(userId))
+                .andExpect(jsonPath("$.userId").value(authenticatedUserId))
                 .andExpect(jsonPath("$.balance").value(100.00))
                 .andExpect(jsonPath("$.currency").value("INR"));
     }
@@ -112,20 +112,20 @@ class WalletControllerTest {
     @WithMockUser(username = "nikhil@example.com")
     @DisplayName("POST /api/v1/wallet/deposit - Should return 200 OK on valid deposit")
     void deposit_ValidAmount_Returns200() throws Exception {
-        DepositRequest request = new DepositRequest(new BigDecimal("50.00"), "Top-up");
-        WalletResponse updatedResponse = new WalletResponse(
-                sampleWalletResponse.id(),
-                userId,
+        DepositRequest depositRequest = new DepositRequest(new BigDecimal("50.00"), "Top-up");
+        WalletResponse expectedUpdatedWalletResponse = new WalletResponse(
+                authenticatedUserWalletResponse.id(),
+                authenticatedUserId,
                 new BigDecimal("150.00"),
                 "INR",
                 LocalDateTime.now()
         );
 
-        when(walletService.deposit(eq(userId), any(DepositRequest.class))).thenReturn(updatedResponse);
+        when(walletService.deposit(eq(authenticatedUserId), any(DepositRequest.class))).thenReturn(expectedUpdatedWalletResponse);
 
         mockMvc.perform(post("/api/v1/wallet/deposit")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                        .content(objectMapper.writeValueAsString(depositRequest)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.balance").value(150.00));
     }
@@ -134,11 +134,11 @@ class WalletControllerTest {
     @WithMockUser(username = "nikhil@example.com")
     @DisplayName("POST /api/v1/wallet/deposit - Should return 400 Bad Request on negative or zero amount")
     void deposit_InvalidAmount_Returns400() throws Exception {
-        DepositRequest invalidRequest = new DepositRequest(new BigDecimal("0.00"), "Invalid deposit");
+        DepositRequest invalidDepositRequest = new DepositRequest(new BigDecimal("0.00"), "Invalid deposit");
 
         mockMvc.perform(post("/api/v1/wallet/deposit")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(invalidRequest)))
+                        .content(objectMapper.writeValueAsString(invalidDepositRequest)))
                 .andExpect(status().isBadRequest());
     }
 
@@ -146,20 +146,20 @@ class WalletControllerTest {
     @WithMockUser(username = "nikhil@example.com")
     @DisplayName("POST /api/v1/wallet/withdraw - Should return 200 OK on valid withdrawal")
     void withdraw_ValidAmount_Returns200() throws Exception {
-        WithdrawRequest request = new WithdrawRequest(new BigDecimal("30.00"), "Withdrawal");
-        WalletResponse updatedResponse = new WalletResponse(
-                sampleWalletResponse.id(),
-                userId,
+        WithdrawRequest withdrawRequest = new WithdrawRequest(new BigDecimal("30.00"), "Withdrawal");
+        WalletResponse expectedUpdatedWalletResponse = new WalletResponse(
+                authenticatedUserWalletResponse.id(),
+                authenticatedUserId,
                 new BigDecimal("70.00"),
                 "INR",
                 LocalDateTime.now()
         );
 
-        when(walletService.withdraw(eq(userId), any(WithdrawRequest.class))).thenReturn(updatedResponse);
+        when(walletService.withdraw(eq(authenticatedUserId), any(WithdrawRequest.class))).thenReturn(expectedUpdatedWalletResponse);
 
         mockMvc.perform(post("/api/v1/wallet/withdraw")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                        .content(objectMapper.writeValueAsString(withdrawRequest)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.balance").value(70.00));
     }
@@ -168,21 +168,21 @@ class WalletControllerTest {
     @WithMockUser(username = "nikhil@example.com")
     @DisplayName("POST /api/v1/wallet/transfer - Should return 200 OK on valid P2P transfer")
     void transfer_ValidPayload_Returns200() throws Exception {
-        Long recipientId = 2L;
-        TransferRequest request = new TransferRequest(recipientId, new BigDecimal("25.00"), "Gift");
-        WalletResponse updatedResponse = new WalletResponse(
-                sampleWalletResponse.id(),
-                userId,
+        Long recipientUserId = 2L;
+        TransferRequest transferRequest = new TransferRequest(recipientUserId, new BigDecimal("25.00"), "Gift");
+        WalletResponse expectedUpdatedWalletResponse = new WalletResponse(
+                authenticatedUserWalletResponse.id(),
+                authenticatedUserId,
                 new BigDecimal("75.00"),
                 "INR",
                 LocalDateTime.now()
         );
 
-        when(walletService.transfer(eq(userId), any(TransferRequest.class))).thenReturn(updatedResponse);
+        when(walletService.transfer(eq(authenticatedUserId), any(TransferRequest.class))).thenReturn(expectedUpdatedWalletResponse);
 
         mockMvc.perform(post("/api/v1/wallet/transfer")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                        .content(objectMapper.writeValueAsString(transferRequest)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.balance").value(75.00));
     }
@@ -191,9 +191,9 @@ class WalletControllerTest {
     @WithMockUser(username = "nikhil@example.com")
     @DisplayName("GET /api/v1/wallet/transactions - Should return 200 OK with transaction list")
     void getTransactionHistory_AuthenticatedUser_Returns200() throws Exception {
-        WalletTransactionResponse txResponse = new WalletTransactionResponse(
+        WalletTransactionResponse mockDepositTransactionResponse = new WalletTransactionResponse(
                 1L,
-                sampleWalletResponse.id(),
+                authenticatedUserWalletResponse.id(),
                 TransactionType.DEPOSIT,
                 new BigDecimal("100.00"),
                 BigDecimal.ZERO,
@@ -204,7 +204,7 @@ class WalletControllerTest {
                 LocalDateTime.now()
         );
 
-        when(walletService.getTransactionHistory(userId)).thenReturn(List.of(txResponse));
+        when(walletService.getTransactionHistory(authenticatedUserId)).thenReturn(List.of(mockDepositTransactionResponse));
 
         mockMvc.perform(get("/api/v1/wallet/transactions"))
                 .andExpect(status().isOk())
@@ -217,8 +217,8 @@ class WalletControllerTest {
     @WithMockUser(username = "nikhil@example.com")
     @DisplayName("GET /api/v1/wallet/passbook - Should return 200 OK with passbook summary and paginated transactions")
     void getPassbook_AuthenticatedUser_Returns200() throws Exception {
-        PassbookResponse passbookResponse = new PassbookResponse(
-                sampleWalletResponse.id(),
+        PassbookResponse mockPassbookResponse = new PassbookResponse(
+                authenticatedUserWalletResponse.id(),
                 new BigDecimal("100.00"),
                 "INR",
                 new BigDecimal("150.00"),
@@ -232,8 +232,7 @@ class WalletControllerTest {
                 List.of()
         );
 
-
-        when(walletService.getPassbook(eq(userId), eq(0), eq(10), any())).thenReturn(passbookResponse);
+        when(walletService.getPassbook(eq(authenticatedUserId), eq(0), eq(10), any())).thenReturn(mockPassbookResponse);
 
         mockMvc.perform(get("/api/v1/wallet/passbook?page=0&size=10"))
                 .andExpect(status().isOk())
@@ -243,4 +242,3 @@ class WalletControllerTest {
                 .andExpect(jsonPath("$.totalTransactions").value(1));
     }
 }
-

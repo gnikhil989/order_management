@@ -60,7 +60,6 @@ public class Wallet {
     @Builder.Default
     private String currency = "INR";
 
-
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;

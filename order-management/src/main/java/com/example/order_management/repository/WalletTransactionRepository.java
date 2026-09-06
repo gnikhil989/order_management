@@ -36,10 +36,11 @@ public interface WalletTransactionRepository extends JpaRepository<WalletTransac
      * Retrieves a paginated slice of ledger transactions filtered by transaction type.
      *
      * @param walletId wallet identifier
-     * @param type transaction type filter (e.g. DEPOSIT, WITHDRAWAL, TRANSFER_OUT)
+     * @param transactionType transaction type filter (e.g. DEPOSIT, WITHDRAWAL, TRANSFER_OUT)
      * @param pageable pagination and sorting parameters
      * @return Page of filtered WalletTransaction records
      */
-    Page<WalletTransaction> findByWalletIdAndType(Long walletId, TransactionType type, Pageable pageable);
+    Page<WalletTransaction> findByWalletIdAndType(Long walletId, TransactionType transactionType, Pageable pageable);
 }
+
 

@@ -25,24 +25,24 @@ public record WalletResponse(
         @Schema(description = "Account currency", example = "INR")
         String currency,
 
-
         @Schema(description = "Timestamp when the wallet was last updated")
         LocalDateTime updatedAt
 ) {
-        /**
-         * Static factory method mapping a Wallet JPA entity to a WalletResponse DTO.
-         *
-         * @param wallet the entity to map
-         * @return populated WalletResponse DTO
-         */
-        public static WalletResponse fromEntity(Wallet wallet) {
-                return new WalletResponse(
-                                wallet.getId(),
-                                wallet.getUserId(),
-                                wallet.getBalance(),
-                                wallet.getCurrency(),
-                                wallet.getUpdatedAt()
-                );
-        }
+    /**
+     * Static factory method mapping a Wallet JPA entity to a WalletResponse DTO.
+     *
+     * @param wallet the entity to map
+     * @return populated WalletResponse DTO
+     */
+    public static WalletResponse fromEntity(Wallet wallet) {
+        return new WalletResponse(
+                wallet.getId(),
+                wallet.getUserId(),
+                wallet.getBalance(),
+                wallet.getCurrency(),
+                wallet.getUpdatedAt()
+        );
+    }
 }
+
 

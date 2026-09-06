@@ -33,17 +33,18 @@ public interface WalletRepository extends JpaRepository<Wallet, Long> {
      * @return Optional containing the locked Wallet if found
      */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT w FROM Wallet w WHERE w.userId = :userId")
+    @Query("SELECT wallet FROM Wallet wallet WHERE wallet.userId = :userId")
     Optional<Wallet> findByUserIdWithLock(@Param("userId") Long userId);
 
     /**
      * Finds a wallet by primary key ID and acquires an exclusive PESSIMISTIC_WRITE lock on the row.
      *
-     * @param id wallet unique identifier
+     * @param walletId wallet unique identifier
      * @return Optional containing the locked Wallet if found
      */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT w FROM Wallet w WHERE w.id = :id")
-    Optional<Wallet> findByIdWithLock(@Param("id") Long id);
+    @Query("SELECT wallet FROM Wallet wallet WHERE wallet.id = :walletId")
+    Optional<Wallet> findByIdWithLock(@Param("walletId") Long walletId);
 }
+
 

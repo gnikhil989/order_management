@@ -23,7 +23,7 @@ import java.util.Map;
  * Authentication Service.
  *
  * Implements business logic for registering new users and authenticating existing users.
- * Uses constructor injection via Lombok's @RequiredArgsConstructor (Dependency Inversion Principle).
+ * Follows DRY principles by centralizing JWT claim building and authentication responses.
  */
 @Service
 @RequiredArgsConstructor
@@ -42,7 +42,7 @@ public class AuthService {
      * 1. Checks if the email is already registered.
      * 2. Encrypts the plain-text password using BCrypt.
      * 3. Saves the User entity to MySQL.
-     * 4. Generates a signed JWT token for the user.
+     * 4. Issues a signed JWT access token.
      *
      * @param request validated registration payload
      * @return AuthResponse containing the JWT token and safe user details
@@ -69,20 +69,8 @@ public class AuthService {
         User savedUser = userRepository.save(user);
         log.info("User registered successfully with ID: {}", savedUser.getId());
 
-        // Step 4: Load Spring Security UserDetails and generate token with custom claims
-        UserDetails userDetails = userDetailsService.loadUserByUsername(savedUser.getEmail());
-        Map<String, Object> extraClaims = new HashMap<>();
-        extraClaims.put("userId", savedUser.getId().toString());
-        extraClaims.put("role", savedUser.getRole().name());
-
-        String jwtToken = jwtService.generateToken(extraClaims, userDetails);
-
-        // Step 5: Return sanitized response DTO
-        return new AuthResponse(
-                jwtToken,
-                jwtService.getExpirationTime(),
-                UserResponse.fromEntity(savedUser)
-        );
+        // Step 4: Generate JWT token and return response DTO (DRY helper)
+        return generateAuthResponse(savedUser);
     }
 
     /**
@@ -90,7 +78,7 @@ public class AuthService {
      *
      * 1. Uses Spring Security's AuthenticationManager to verify credentials.
      * 2. Retrieves the user record from the database.
-     * 3. Generates a signed JWT token.
+     * 3. Issues a signed JWT token.
      *
      * @param request validated login credentials
      * @return AuthResponse containing the JWT token and user profile
@@ -99,7 +87,7 @@ public class AuthService {
     public AuthResponse login(LoginRequest request) {
         log.info("User login attempt for email: {}", request.email());
 
-        // Step 1: Authenticate credentials using Spring Security (throws AuthenticationException if bad password/email)
+        // Step 1: Authenticate credentials using Spring Security
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         request.email().trim().toLowerCase(),
@@ -111,16 +99,26 @@ public class AuthService {
         User user = userRepository.findByEmail(request.email().trim().toLowerCase())
                 .orElseThrow(() -> new IllegalStateException("User not found after successful authentication"));
 
-        // Step 3: Generate JWT token
+        log.info("Login successful for user: {}", user.getEmail());
+
+        // Step 3: Generate JWT token and return response DTO (DRY helper)
+        return generateAuthResponse(user);
+    }
+
+    /**
+     * DRY Helper: Generates a signed JWT token with custom claims and maps to AuthResponse.
+     *
+     * @param user the authenticated User entity
+     * @return populated AuthResponse DTO
+     */
+    private AuthResponse generateAuthResponse(User user) {
         UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
         Map<String, Object> extraClaims = new HashMap<>();
         extraClaims.put("userId", user.getId().toString());
         extraClaims.put("role", user.getRole().name());
 
         String jwtToken = jwtService.generateToken(extraClaims, userDetails);
-        log.info("Login successful for user: {}", user.getEmail());
 
-        // Step 4: Return response DTO
         return new AuthResponse(
                 jwtToken,
                 jwtService.getExpirationTime(),
@@ -128,4 +126,5 @@ public class AuthService {
         );
     }
 }
+
 

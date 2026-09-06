@@ -26,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -36,7 +37,7 @@ import java.util.UUID;
  * - Pessimistic write locking on database rows to prevent double-spending race conditions.
  * - Deterministic lock ordering during multi-wallet transfers to prevent deadlocks.
  * - Append-only immutable financial audit ledger creation.
- * - Atomic execution via Spring @Transactional.
+ * - Follows DRY (Don't Repeat Yourself) principle with extracted helper methods.
  */
 @Service
 @RequiredArgsConstructor
@@ -80,27 +81,25 @@ public class WalletService {
                 .orElseGet(() -> createDefaultWallet(userId));
 
         BigDecimal beforeBalance = wallet.getBalance();
-        BigDecimal depositAmount = request.amount().setScale(2, RoundingMode.HALF_EVEN);
+        BigDecimal depositAmount = scaleAmount(request.amount());
 
         // Step 2: Update balance
         wallet.credit(depositAmount);
         Wallet updatedWallet = walletRepository.save(wallet);
 
-        // Step 3: Record immutable audit ledger entry
-        WalletTransaction transaction = WalletTransaction.builder()
-                .walletId(updatedWallet.getId())
-                .type(TransactionType.DEPOSIT)
-                .amount(depositAmount)
-                .beforeBalance(beforeBalance)
-                .afterBalance(updatedWallet.getBalance())
-                .status(TransactionStatus.SUCCESS)
-                .description(request.description() != null ? request.description() : "Wallet Deposit")
-                .referenceId("DEP-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
-                .build();
+        // Step 3: Record immutable audit ledger entry (DRY helper)
+        String description = request.description() != null ? request.description() : "Wallet Deposit";
+        createAndSaveTransaction(
+                updatedWallet.getId(),
+                TransactionType.DEPOSIT,
+                depositAmount,
+                beforeBalance,
+                updatedWallet.getBalance(),
+                description,
+                generateReferenceId("DEP")
+        );
 
-        transactionRepository.save(transaction);
         log.info("Deposit successful for user: {}. New balance: {}", userId, updatedWallet.getBalance());
-
         return WalletResponse.fromEntity(updatedWallet);
     }
 
@@ -126,7 +125,7 @@ public class WalletService {
                 .orElseThrow(() -> new WalletNotFoundException("Wallet not found for user: " + userId));
 
         BigDecimal beforeBalance = wallet.getBalance();
-        BigDecimal withdrawAmount = request.amount().setScale(2, RoundingMode.HALF_EVEN);
+        BigDecimal withdrawAmount = scaleAmount(request.amount());
 
         // Step 2: Validate balance sufficiency
         if (beforeBalance.compareTo(withdrawAmount) < 0) {
@@ -141,21 +140,19 @@ public class WalletService {
         wallet.debit(withdrawAmount);
         Wallet updatedWallet = walletRepository.save(wallet);
 
-        // Step 4: Record immutable audit ledger entry
-        WalletTransaction transaction = WalletTransaction.builder()
-                .walletId(updatedWallet.getId())
-                .type(TransactionType.WITHDRAWAL)
-                .amount(withdrawAmount)
-                .beforeBalance(beforeBalance)
-                .afterBalance(updatedWallet.getBalance())
-                .status(TransactionStatus.SUCCESS)
-                .description(request.description() != null ? request.description() : "Wallet Withdrawal")
-                .referenceId("WTH-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
-                .build();
+        // Step 4: Record immutable audit ledger entry (DRY helper)
+        String description = request.description() != null ? request.description() : "Wallet Withdrawal";
+        createAndSaveTransaction(
+                updatedWallet.getId(),
+                TransactionType.WITHDRAWAL,
+                withdrawAmount,
+                beforeBalance,
+                updatedWallet.getBalance(),
+                description,
+                generateReferenceId("WTH")
+        );
 
-        transactionRepository.save(transaction);
         log.info("Withdrawal successful for user: {}. New balance: {}", userId, updatedWallet.getBalance());
-
         return WalletResponse.fromEntity(updatedWallet);
     }
 
@@ -180,19 +177,19 @@ public class WalletService {
             throw new IllegalArgumentException("Cannot transfer funds to your own wallet.");
         }
 
-        BigDecimal transferAmount = request.amount().setScale(2, RoundingMode.HALF_EVEN);
+        BigDecimal transferAmount = scaleAmount(request.amount());
 
         // Step 2: Deadlock Prevention - Acquire locks in deterministic sorted order
-        Long firstLockUserId = senderUserId < recipientUserId ? senderUserId : recipientUserId;
-        Long secondLockUserId = senderUserId < recipientUserId ? recipientUserId : senderUserId;
+        Long lowerNumberedUserId = senderUserId < recipientUserId ? senderUserId : recipientUserId;
+        Long higherNumberedUserId = senderUserId < recipientUserId ? recipientUserId : senderUserId;
 
-        Wallet firstLocked = walletRepository.findByUserIdWithLock(firstLockUserId)
-                .orElseGet(() -> createDefaultWallet(firstLockUserId));
-        Wallet secondLocked = walletRepository.findByUserIdWithLock(secondLockUserId)
-                .orElseGet(() -> createDefaultWallet(secondLockUserId));
+        Wallet firstLockedWallet = walletRepository.findByUserIdWithLock(lowerNumberedUserId)
+                .orElseGet(() -> createDefaultWallet(lowerNumberedUserId));
+        Wallet secondLockedWallet = walletRepository.findByUserIdWithLock(higherNumberedUserId)
+                .orElseGet(() -> createDefaultWallet(higherNumberedUserId));
 
-        Wallet senderWallet = senderUserId.equals(firstLockUserId) ? firstLocked : secondLocked;
-        Wallet recipientWallet = recipientUserId.equals(firstLockUserId) ? firstLocked : secondLocked;
+        Wallet senderWallet = senderUserId.equals(lowerNumberedUserId) ? firstLockedWallet : secondLockedWallet;
+        Wallet recipientWallet = recipientUserId.equals(lowerNumberedUserId) ? firstLockedWallet : secondLockedWallet;
 
         // Step 3: Validate sender balance
         BigDecimal senderBeforeBalance = senderWallet.getBalance();
@@ -212,35 +209,31 @@ public class WalletService {
         walletRepository.save(senderWallet);
         walletRepository.save(recipientWallet);
 
-        String transferRef = "TRF-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        String transferReference = generateReferenceId("TRF");
 
         // Step 5: Record double-entry audit ledger (TRANSFER_OUT for sender, TRANSFER_IN for recipient)
-        WalletTransaction senderTx = WalletTransaction.builder()
-                .walletId(senderWallet.getId())
-                .type(TransactionType.TRANSFER_OUT)
-                .amount(transferAmount)
-                .beforeBalance(senderBeforeBalance)
-                .afterBalance(senderWallet.getBalance())
-                .status(TransactionStatus.SUCCESS)
-                .description("Transfer to user: " + recipientUserId + (request.description() != null ? " - " + request.description() : ""))
-                .referenceId(transferRef)
-                .build();
+        String optionalTransferNote = (request.description() != null ? " - " + request.description() : "");
+        createAndSaveTransaction(
+                senderWallet.getId(),
+                TransactionType.TRANSFER_OUT,
+                transferAmount,
+                senderBeforeBalance,
+                senderWallet.getBalance(),
+                "Transfer to user: " + recipientUserId + optionalTransferNote,
+                transferReference
+        );
 
-        WalletTransaction recipientTx = WalletTransaction.builder()
-                .walletId(recipientWallet.getId())
-                .type(TransactionType.TRANSFER_IN)
-                .amount(transferAmount)
-                .beforeBalance(recipientBeforeBalance)
-                .afterBalance(recipientWallet.getBalance())
-                .status(TransactionStatus.SUCCESS)
-                .description("Transfer from user: " + senderUserId + (request.description() != null ? " - " + request.description() : ""))
-                .referenceId(transferRef)
-                .build();
+        createAndSaveTransaction(
+                recipientWallet.getId(),
+                TransactionType.TRANSFER_IN,
+                transferAmount,
+                recipientBeforeBalance,
+                recipientWallet.getBalance(),
+                "Transfer from user: " + senderUserId + optionalTransferNote,
+                transferReference
+        );
 
-        transactionRepository.save(senderTx);
-        transactionRepository.save(recipientTx);
-
-        log.info("P2P transfer completed successfully. Ref: {}", transferRef);
+        log.info("P2P transfer completed successfully. Ref: {}", transferReference);
         return WalletResponse.fromEntity(senderWallet);
     }
 
@@ -268,47 +261,29 @@ public class WalletService {
      * @param userId user identifier
      * @param page zero-based page index
      * @param size page size (e.g. 10 items)
-     * @param type optional filter by transaction type (e.g. DEPOSIT, WITHDRAWAL)
+     * @param transactionTypeFilter optional filter by transaction type (e.g. DEPOSIT, WITHDRAWAL)
      * @return PassbookResponse containing totals and paginated transactions
      */
     @Transactional(readOnly = true)
-    public PassbookResponse getPassbook(Long userId, int page, int size, TransactionType type) {
-        log.debug("Fetching passbook for user: {}, page: {}, size: {}, type: {}", userId, page, size, type);
+    public PassbookResponse getPassbook(Long userId, int page, int size, TransactionType transactionTypeFilter) {
+        log.debug("Fetching passbook for user: {}, page: {}, size: {}, type: {}", userId, page, size, transactionTypeFilter);
         Wallet wallet = walletRepository.findByUserId(userId)
                 .orElseGet(() -> createDefaultWallet(userId));
 
         // 1. Fetch paginated ledger records
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        Page<WalletTransaction> transactionPage = (type != null)
-                ? transactionRepository.findByWalletIdAndType(wallet.getId(), type, pageable)
+        Page<WalletTransaction> transactionPage = (transactionTypeFilter != null)
+                ? transactionRepository.findByWalletIdAndType(wallet.getId(), transactionTypeFilter, pageable)
                 : transactionRepository.findByWalletId(wallet.getId(), pageable);
 
         // 2. Fetch all historical transactions for this wallet to compute passbook summary metrics
-        List<WalletTransaction> allTransactions = transactionRepository.findByWalletIdOrderByCreatedAtDesc(wallet.getId());
+        List<WalletTransaction> allHistoricalTransactions = transactionRepository.findByWalletIdOrderByCreatedAtDesc(wallet.getId());
 
-        BigDecimal totalDeposits = allTransactions.stream()
-                .filter(tx -> tx.getType() == TransactionType.DEPOSIT || tx.getType() == TransactionType.REFUND)
-                .map(WalletTransaction::getAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add)
-                .setScale(2, RoundingMode.HALF_EVEN);
-
-        BigDecimal totalWithdrawals = allTransactions.stream()
-                .filter(tx -> tx.getType() == TransactionType.WITHDRAWAL || tx.getType() == TransactionType.ORDER_PAYMENT)
-                .map(WalletTransaction::getAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add)
-                .setScale(2, RoundingMode.HALF_EVEN);
-
-        BigDecimal totalTransfersSent = allTransactions.stream()
-                .filter(tx -> tx.getType() == TransactionType.TRANSFER_OUT)
-                .map(WalletTransaction::getAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add)
-                .setScale(2, RoundingMode.HALF_EVEN);
-
-        BigDecimal totalTransfersReceived = allTransactions.stream()
-                .filter(tx -> tx.getType() == TransactionType.TRANSFER_IN)
-                .map(WalletTransaction::getAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add)
-                .setScale(2, RoundingMode.HALF_EVEN);
+        // DRY Metric Calculation via extracted sumTransactions helper
+        BigDecimal totalDeposits = sumTransactions(allHistoricalTransactions, TransactionType.DEPOSIT, TransactionType.REFUND);
+        BigDecimal totalWithdrawals = sumTransactions(allHistoricalTransactions, TransactionType.WITHDRAWAL, TransactionType.ORDER_PAYMENT);
+        BigDecimal totalTransfersSent = sumTransactions(allHistoricalTransactions, TransactionType.TRANSFER_OUT);
+        BigDecimal totalTransfersReceived = sumTransactions(allHistoricalTransactions, TransactionType.TRANSFER_IN);
 
         List<WalletTransactionResponse> transactionResponses = transactionPage.getContent()
                 .stream()
@@ -344,5 +319,57 @@ public class WalletService {
         return walletRepository.save(newWallet);
     }
 
+    /**
+     * DRY Helper: Scales a monetary amount to 2 decimal places using Banker's Rounding (HALF_EVEN).
+     */
+    private BigDecimal scaleAmount(BigDecimal monetaryAmount) {
+        return monetaryAmount.setScale(2, RoundingMode.HALF_EVEN);
+    }
+
+    /**
+     * DRY Helper: Generates a human-readable unique reference identifier (e.g. DEP-A1B2C3D4).
+     */
+    private String generateReferenceId(String transactionTypePrefix) {
+        return transactionTypePrefix + "-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+    }
+
+    /**
+     * DRY Helper: Creates and persists an immutable WalletTransaction ledger entry.
+     */
+    private WalletTransaction createAndSaveTransaction(
+            Long walletId,
+            TransactionType transactionType,
+            BigDecimal monetaryAmount,
+            BigDecimal balanceBeforeTransaction,
+            BigDecimal balanceAfterTransaction,
+            String transactionDescription,
+            String referenceIdentifier
+    ) {
+        WalletTransaction transaction = WalletTransaction.builder()
+                .walletId(walletId)
+                .type(transactionType)
+                .amount(monetaryAmount)
+                .beforeBalance(balanceBeforeTransaction)
+                .afterBalance(balanceAfterTransaction)
+                .status(TransactionStatus.SUCCESS)
+                .description(transactionDescription)
+                .referenceId(referenceIdentifier)
+                .build();
+        return transactionRepository.save(transaction);
+    }
+
+    /**
+     * DRY Helper: Aggregates monetary sums for specific transaction types across the audit ledger.
+     */
+    private BigDecimal sumTransactions(List<WalletTransaction> historicalTransactions, TransactionType... targetTransactionTypes) {
+        Set<TransactionType> targetTypeSet = Set.of(targetTransactionTypes);
+        return historicalTransactions.stream()
+                .filter(transaction -> targetTypeSet.contains(transaction.getType()))
+                .map(WalletTransaction::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .setScale(2, RoundingMode.HALF_EVEN);
+    }
 }
+
+
 

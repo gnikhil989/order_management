@@ -32,7 +32,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Validates HTTP routing, JSON serialization, and @Valid bean validation constraints.
  */
 @WebMvcTest(AuthController.class)
-@AutoConfigureMockMvc(addFilters = false) // Disable security filters to test controller validation and mapping in isolation
+@AutoConfigureMockMvc(addFilters = false)
 class AuthControllerTest {
 
     @Autowired
@@ -56,15 +56,15 @@ class AuthControllerTest {
     @Test
     @DisplayName("POST /api/v1/auth/register - Should return 201 Created on valid input")
     void register_ValidPayload_Returns201() throws Exception {
-        RegisterRequest request = new RegisterRequest("Jane Doe", "jane@example.com", "Password123!", Role.USER);
-        UserResponse userResponse = new UserResponse(1L, "Jane Doe", "jane@example.com", Role.USER, LocalDateTime.now());
-        AuthResponse authResponse = new AuthResponse("sample.jwt.token", 86400000L, userResponse);
+        RegisterRequest registerRequest = new RegisterRequest("Jane Doe", "jane@example.com", "Password123!", Role.USER);
+        UserResponse mockUserResponse = new UserResponse(1L, "Jane Doe", "jane@example.com", Role.USER, LocalDateTime.now());
+        AuthResponse mockAuthResponse = new AuthResponse("sample.jwt.token", 86400000L, mockUserResponse);
 
-        when(authService.register(any(RegisterRequest.class))).thenReturn(authResponse);
+        when(authService.register(any(RegisterRequest.class))).thenReturn(mockAuthResponse);
 
         mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                        .content(objectMapper.writeValueAsString(registerRequest)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.accessToken").value("sample.jwt.token"))
                 .andExpect(jsonPath("$.user.email").value("jane@example.com"));
@@ -73,30 +73,28 @@ class AuthControllerTest {
     @Test
     @DisplayName("POST /api/v1/auth/register - Should return 400 Bad Request on invalid email")
     void register_InvalidEmail_Returns400() throws Exception {
-        RegisterRequest invalidRequest = new RegisterRequest("Jane Doe", "not-a-valid-email", "pass", Role.USER);
+        RegisterRequest invalidRegisterRequest = new RegisterRequest("Jane Doe", "not-a-valid-email", "pass", Role.USER);
 
         mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(invalidRequest)))
+                        .content(objectMapper.writeValueAsString(invalidRegisterRequest)))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
     @DisplayName("POST /api/v1/auth/login - Should return 200 OK on valid credentials")
     void login_ValidPayload_Returns200() throws Exception {
-        LoginRequest request = new LoginRequest("jane@example.com", "Password123!");
-        UserResponse userResponse = new UserResponse(1L, "Jane Doe", "jane@example.com", Role.USER, LocalDateTime.now());
-        AuthResponse authResponse = new AuthResponse("sample.jwt.token", 86400000L, userResponse);
+        LoginRequest loginRequest = new LoginRequest("jane@example.com", "Password123!");
+        UserResponse mockUserResponse = new UserResponse(1L, "Jane Doe", "jane@example.com", Role.USER, LocalDateTime.now());
+        AuthResponse mockAuthResponse = new AuthResponse("sample.jwt.token", 86400000L, mockUserResponse);
 
-        when(authService.login(any(LoginRequest.class))).thenReturn(authResponse);
+        when(authService.login(any(LoginRequest.class))).thenReturn(mockAuthResponse);
 
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                        .content(objectMapper.writeValueAsString(loginRequest)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").value("sample.jwt.token"))
                 .andExpect(jsonPath("$.user.email").value("jane@example.com"));
     }
 }
-
-
